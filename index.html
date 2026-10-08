@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+</head>
+<body>
+<title>El Café Espiritual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Montserrat:wght@400;500;600&display=swap">
+<style>
+/* Layout: preview of the day's image beside a narrow control column; stacks on phones. Single dark "coffee" look by choice. */
+:root{
+  --bg:#15100c; --surface:#1f1812; --line:#3a2d22; --fg:#f1e6d3; --muted:#b19c84; --accent:#e0a85e; --accent-ink:#1b120a;
+  --f-display:"Playfair Display", Georgia, "Times New Roman", serif;
+  --f-ui:"Montserrat", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme:dark;
+}
+html{background:var(--bg)}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:15px;line-height:1.5;padding-inline:16px;padding-block:20px 40px}
+.wrap{max-width:1040px;margin:0 auto;display:grid;gap:24px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 16px;border-bottom:1px solid var(--line);padding-bottom:14px}
+h1{font-family:var(--f-display);font-weight:500;font-size:clamp(26px,4vw,34px);margin:0;text-wrap:balance}
+header p{margin:0;color:var(--muted);font-size:13px;letter-spacing:.04em}
+.main{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:28px;align-items:start}
+@media (max-width:760px){.main{grid-template-columns:minmax(0,1fr)}}
+.stage{display:flex;justify-content:center;background:#0d0906;border:1px solid var(--line);border-radius:6px;padding:14px}
+canvas{display:block;max-width:100%;height:auto;max-height:76vh;width:auto;border-radius:2px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.panel{display:grid;gap:22px;min-width:0}
+.group{display:grid;gap:10px}
+.label{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button,.filebtn{font:500 14px/1 var(--f-ui);color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:11px 14px;cursor:pointer}
+button:hover,.filebtn:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,textarea:focus-visible,.filebtn:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600;padding:14px 18px;flex:1 1 auto}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;border-radius:0;flex:1;background:transparent}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+input[type=date],input[type=text],textarea{font:400 15px/1.4 var(--f-ui);color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px 12px;min-width:0}
+input[type=date]{flex:1}
+textarea{width:100%;resize:vertical;min-height:84px;font-family:var(--f-display);font-size:17px}
+.full{width:100%}
+.verse-now{font-family:var(--f-display);font-size:18px;line-height:1.35;margin:0}
+.verse-now cite{display:block;font-family:var(--f-ui);font-style:normal;font-size:13px;color:var(--muted);margin-top:6px}
+details{border-top:1px solid var(--line);padding-top:16px}
+summary{cursor:pointer;font-weight:600;font-size:14px}
+details .group{margin-top:14px}
+.check{display:flex;gap:8px;align-items:center;font-size:14px}
+.filebtn{position:relative;display:inline-flex}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.lit-now{margin:0;font-size:13px;color:var(--accent);font-weight:500}
+.warn:empty{display:none}
+.note{color:var(--muted);font-size:13px;margin:0;max-width:60ch}
+.toast{min-height:20px;font-size:13px;color:var(--accent)}
+@media (prefers-reduced-motion:no-preference){button{transition:border-color .15s}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>El Café Espiritual</h1>
+    <p>Imagen del día · cambia sola cada fecha</p>
+  </header>
+
+  <div class="main">
+    <div class="stage"><canvas id="cv" width="1080" height="1350" aria-label="Imagen del día"></canvas></div>
+
+    <div class="panel">
+      <div class="group">
+        <span class="label">Fecha</span>
+        <div class="row">
+          <button id="prev" aria-label="Día anterior">‹</button>
+          <input type="date" id="date">
+          <button id="next" aria-label="Día siguiente">›</button>
+          <button id="today">Hoy</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <span class="label">Formato</span>
+        <div class="seg" role="group">
+          <button id="fmtPost" aria-pressed="true">Publicación 4:5</button>
+          <button id="fmtStory" aria-pressed="false">Estado / TikTok 9:16</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <span class="label">Palabra del día</span>
+        <p class="lit-now" id="litNow"></p>
+        <p class="verse-now" id="verseNow"></p>
+        <p class="note warn" id="litNote"></p>
+      </div>
+
+      <div class="group">
+        <div class="row">
+          <button class="primary" id="download">Descargar imagen</button>
+          <button id="share" hidden>Compartir</button>
+        </div>
+        <div class="row">
+          <button id="copy">Copiar texto para publicar</button>
+          <button id="otherBg">Otro fondo</button>
+          <button id="otherVerse">Versículo general</button>
+          <button id="litVerse" hidden>Volver a la liturgia</button>
+        </div>
+        <div class="toast" id="toast" role="status"></div>
+      </div>
+
+      <details>
+        <summary>Personalizar</summary>
+        <div class="group">
+          <label class="label" for="txt">Texto</label>
+          <textarea id="txt"></textarea>
+          <label class="label" for="cite">Cita</label>
+          <input type="text" id="cite" class="full">
+          <label class="label" for="brand">Nombre de la página</label>
+          <input type="text" id="brand" class="full">
+          <label class="check"><input type="checkbox" id="showDate" checked> Mostrar la fecha en la imagen</label>
+          <label class="check"><input type="checkbox" id="showLitDay" checked> Mostrar el día litúrgico</label>
+          <span class="label">Fotos propias</span>
+          <div class="row">
+            <label class="filebtn">Agregar fotos<input type="file" id="photos" accept="image/*" multiple></label>
+            <label class="check"><input type="checkbox" id="usePhotos" disabled> Usar mis fotos de fondo</label>
+          </div>
+          <p class="note">Las fotos solo quedan mientras la página esté abierta. Sin fotos propias, el fondo se pinta solo, distinto cada día.</p>
+        </div>
+      </details>
+
+      <p class="note">La frase sale de las lecturas de la misa del día, y el fondo toma el color litúrgico. Si abres el mismo día otra vez, sale la misma imagen. El texto editado vale solo para ese día.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- Versículos (texto | cita) ---------- */
+const VERSES = `Pidan y se les dará; busquen y encontrarán; llamen y se les abrirá.|Lc 11, 9
+Vengan a mí todos los que están cansados y agobiados, y yo los aliviaré.|Mt 11, 28
+El Señor es mi pastor, nada me falta.|Sal 23, 1
+Yo sé muy bien los planes que tengo para ustedes: planes de paz y no de desgracia, para darles un futuro lleno de esperanza.|Jr 29, 11
+No temas, porque yo estoy contigo; no te angusties, porque yo soy tu Dios.|Is 41, 10
+Todo lo puedo en aquel que me fortalece.|Flp 4, 13
+Dios es amor, y el que permanece en el amor permanece en Dios.|1 Jn 4, 16
+Yo soy la luz del mundo; el que me sigue no camina en tinieblas.|Jn 8, 12
+Yo estoy con ustedes todos los días hasta el fin del mundo.|Mt 28, 20
+La paz les dejo, mi paz les doy. No se inquiete su corazón ni tenga miedo.|Jn 14, 27
+Encomienda al Señor tu camino, confía en él y él actuará.|Sal 37, 5
+Hágase en mí según tu palabra.|Lc 1, 38
+Busquen primero el Reino de Dios y su justicia, y todo lo demás se les dará por añadidura.|Mt 6, 33
+El amor es paciente, es servicial; el amor no tiene envidia.|1 Co 13, 4
+Los que esperan en el Señor renuevan sus fuerzas; vuelan como las águilas.|Is 40, 31
+Lámpara es tu palabra para mis pasos, luz en mi sendero.|Sal 119, 105
+Yo soy el camino, la verdad y la vida.|Jn 14, 6
+Mi gracia te basta, porque mi fuerza se realiza en la debilidad.|2 Co 12, 9
+Alégrense siempre en el Señor; se lo repito: alégrense.|Flp 4, 4
+El Señor está cerca de los que tienen el corazón quebrantado.|Sal 34, 19
+Ámense unos a otros como yo los he amado.|Jn 15, 12
+Dichosos los limpios de corazón, porque ellos verán a Dios.|Mt 5, 8
+Dichosos los que trabajan por la paz, porque serán llamados hijos de Dios.|Mt 5, 9
+Dios ama al que da con alegría.|2 Co 9, 7
+Sean misericordiosos como su Padre es misericordioso.|Lc 6, 36
+Gusten y vean qué bueno es el Señor.|Sal 34, 9
+El que habita al amparo del Altísimo vive a la sombra del Todopoderoso.|Sal 91, 1
+Mi alma glorifica al Señor y mi espíritu se alegra en Dios, mi salvador.|Lc 1, 46-47
+Señor, tú lo sabes todo; tú sabes que te quiero.|Jn 21, 17
+Aunque pase por valles oscuros, no temo ningún mal, porque tú estás conmigo.|Sal 23, 4
+Tanto amó Dios al mundo que entregó a su Hijo único.|Jn 3, 16
+Nada podrá separarnos del amor de Dios manifestado en Cristo Jesús.|Rm 8, 39
+Sabemos que todo contribuye al bien de los que aman a Dios.|Rm 8, 28
+Si Dios está con nosotros, ¿quién contra nosotros?|Rm 8, 31
+Crea en mí, oh Dios, un corazón puro; renueva en mi interior un espíritu firme.|Sal 51, 12
+Deténganse y reconozcan que yo soy Dios.|Sal 46, 11
+El Señor es mi luz y mi salvación, ¿a quién temeré?|Sal 27, 1
+Den gracias en toda ocasión, porque esta es la voluntad de Dios.|1 Ts 5, 18
+Oren sin cesar.|1 Ts 5, 17
+Echen sobre él todas sus preocupaciones, porque él cuida de ustedes.|1 P 5, 7
+Permanezcan en mí, como yo en ustedes.|Jn 15, 4
+Yo soy la vid, ustedes los sarmientos.|Jn 15, 5
+No se turbe su corazón; crean en Dios y crean también en mí.|Jn 14, 1
+Yo soy la resurrección y la vida.|Jn 11, 25
+Ustedes son la luz del mundo.|Mt 5, 14
+Ustedes son la sal de la tierra.|Mt 5, 13
+Donde dos o tres están reunidos en mi nombre, allí estoy yo en medio de ellos.|Mt 18, 20
+Dichosos los que creen sin haber visto.|Jn 20, 29
+Lo que es imposible para los hombres es posible para Dios.|Lc 18, 27
+Para Dios nada es imposible.|Lc 1, 37
+Mira que estoy a la puerta y llamo.|Ap 3, 20
+Yo hago nuevas todas las cosas.|Ap 21, 5
+Él enjugará toda lágrima de sus ojos.|Ap 21, 4
+Con amor eterno te he amado.|Jr 31, 3
+Eres precioso a mis ojos, eres digno de estima y yo te amo.|Is 43, 4
+¿Puede una madre olvidarse de su niño? Aunque ella se olvide, yo no te olvidaré.|Is 49, 15
+Te llevo grabado en la palma de mis manos.|Is 49, 16
+No temas, que yo te he redimido; te he llamado por tu nombre, tú eres mío.|Is 43, 1
+Los montes se moverán, pero mi amor no se apartará de ti.|Is 54, 10
+El Señor tu Dios está en medio de ti; se alegra por ti y te renueva con su amor.|Sof 3, 17
+El Señor te bendiga y te proteja.|Nm 6, 24
+Sé fuerte y valiente; no temas, porque el Señor tu Dios estará contigo dondequiera que vayas.|Jos 1, 9
+Yo y mi casa serviremos al Señor.|Jos 24, 15
+Confía en el Señor de todo corazón y no te apoyes en tu propia inteligencia.|Pr 3, 5
+Todo tiene su momento, y cada cosa su tiempo bajo el cielo.|Qo 3, 1
+El amor del Señor no se ha acabado; su misericordia se renueva cada mañana.|Lm 3, 22-23
+Bueno es el Señor para quien en él espera.|Lm 3, 25
+Les daré un corazón nuevo y pondré en ustedes un espíritu nuevo.|Ez 36, 26
+Practicar la justicia, amar la misericordia y caminar humildemente con tu Dios.|Mi 6, 8
+Habla, Señor, que tu siervo escucha.|1 S 3, 9
+El hombre mira las apariencias, pero el Señor mira el corazón.|1 S 16, 7
+Solo en Dios descansa mi alma; de él viene mi salvación.|Sal 62, 2
+Como busca la cierva corrientes de agua, así te busca mi alma, Dios mío.|Sal 42, 2
+Mi alma tiene sed de Dios, del Dios vivo.|Sal 42, 3
+Este es el día que hizo el Señor: alegrémonos y gocemos en él.|Sal 118, 24
+Den gracias al Señor porque es bueno, porque es eterna su misericordia.|Sal 136, 1
+Levanto mis ojos a los montes: ¿de dónde me vendrá el auxilio? Mi auxilio viene del Señor.|Sal 121, 1-2
+El Señor guardará tus entradas y salidas, ahora y por siempre.|Sal 121, 8
+Los que siembran entre lágrimas cosechan entre cantares.|Sal 126, 5
+Si el Señor no construye la casa, en vano se cansan los albañiles.|Sal 127, 1
+Él sana los corazones destrozados y venda sus heridas.|Sal 147, 3
+Todo ser que respira alabe al Señor.|Sal 150, 6
+Enséñanos a contar nuestros días, para que adquiramos un corazón sensato.|Sal 90, 12
+Dios es nuestro refugio y fortaleza, auxilio siempre presente en la angustia.|Sal 46, 2
+Bendice, alma mía, al Señor, y no olvides ninguno de sus beneficios.|Sal 103, 2
+El Señor es compasivo y misericordioso, lento a la ira y rico en amor.|Sal 103, 8
+Dichoso el que confía en el Señor.|Jr 17, 7
+Clama a mí y te responderé.|Jr 33, 3
+Me buscarán y me encontrarán, cuando me busquen de todo corazón.|Jr 29, 13
+Felices los pobres de espíritu, porque de ellos es el Reino de los Cielos.|Mt 5, 3
+Felices los afligidos, porque serán consolados.|Mt 5, 4
+Felices los misericordiosos, porque obtendrán misericordia.|Mt 5, 7
+No se preocupen por el mañana; el mañana se preocupará de sí mismo.|Mt 6, 34
+Miren los pájaros del cielo: no siembran ni cosechan, y el Padre celestial los alimenta.|Mt 6, 26
+Donde está tu tesoro, allí estará tu corazón.|Mt 6, 21
+Traten a los demás como quieren que ellos los traten.|Mt 7, 12
+Aprendan de mí, que soy manso y humilde de corazón.|Mt 11, 29
+Ánimo, soy yo; no tengan miedo.|Mt 14, 27
+Señor, sálvame.|Mt 14, 30
+Amarás al Señor tu Dios con todo tu corazón, y a tu prójimo como a ti mismo.|Mt 22, 37.39
+Lo que hicieron a uno de estos más pequeños, a mí me lo hicieron.|Mt 25, 40
+Velen y oren para no caer en tentación.|Mt 26, 41
+Creo, Señor, pero ayuda mi poca fe.|Mc 9, 24
+Tu fe te ha salvado; vete en paz.|Lc 7, 50
+María eligió la mejor parte.|Lc 10, 42
+Hay más alegría en el cielo por un pecador que se convierte.|Lc 15, 7
+Padre, perdónalos, porque no saben lo que hacen.|Lc 23, 34
+Jesús, acuérdate de mí cuando llegues a tu Reino.|Lc 23, 42
+¿No ardía nuestro corazón mientras nos hablaba en el camino?|Lc 24, 32
+Quédate con nosotros, porque ya es tarde.|Lc 24, 29
+Hagan lo que él les diga.|Jn 2, 5
+Yo soy el pan de vida; el que viene a mí no tendrá hambre.|Jn 6, 35
+Señor, ¿a quién iremos? Tú tienes palabras de vida eterna.|Jn 6, 68
+La verdad los hará libres.|Jn 8, 32
+Yo he venido para que tengan vida, y vida en abundancia.|Jn 10, 10
+Yo soy el buen pastor; conozco a mis ovejas y ellas me conocen.|Jn 10, 14
+Nadie tiene amor más grande que el que da la vida por sus amigos.|Jn 15, 13
+Ya no los llamo siervos; los llamo amigos.|Jn 15, 15
+En el mundo tendrán aflicción, pero tengan valor: yo he vencido al mundo.|Jn 16, 33
+Paz a ustedes.|Jn 20, 19
+Señor mío y Dios mío.|Jn 20, 28
+El amor de Dios ha sido derramado en nuestros corazones por el Espíritu Santo.|Rm 5, 5
+Alégrense en la esperanza, sean pacientes en la tribulación, perseverantes en la oración.|Rm 12, 12
+No te dejes vencer por el mal; vence el mal con el bien.|Rm 12, 21
+Ahora permanecen la fe, la esperanza y el amor; pero la más grande es el amor.|1 Co 13, 13
+Hagan todo con amor.|1 Co 16, 14
+Si alguno está en Cristo, es una nueva creación.|2 Co 5, 17
+Ya no vivo yo, es Cristo quien vive en mí.|Ga 2, 20
+El fruto del Espíritu es amor, alegría, paz, paciencia, bondad.|Ga 5, 22
+Lleven las cargas los unos de los otros.|Ga 6, 2
+Por gracia ustedes han sido salvados mediante la fe.|Ef 2, 8
+Sean bondadosos y compasivos unos con otros, y perdónense.|Ef 4, 32
+Vivan en el amor, como Cristo los amó.|Ef 5, 2
+El que comenzó en ustedes la buena obra la llevará a término.|Flp 1, 6
+No se angustien por nada; presenten a Dios sus peticiones con oración y acción de gracias.|Flp 4, 6
+La paz de Dios, que supera todo entendimiento, guardará sus corazones.|Flp 4, 7
+Todo lo que hagan, háganlo de corazón, como para el Señor.|Col 3, 23
+Que la paz de Cristo reine en sus corazones.|Col 3, 15
+Dios no nos dio un espíritu de cobardía, sino de fortaleza, de amor y de templanza.|2 Tm 1, 7
+He peleado el buen combate, he terminado la carrera, he guardado la fe.|2 Tm 4, 7
+Acerquémonos con confianza al trono de la gracia.|Hb 4, 16
+La fe es garantía de lo que se espera, prueba de lo que no se ve.|Hb 11, 1
+Corramos con perseverancia, fijos los ojos en Jesús.|Hb 12, 1-2
+Jesucristo es el mismo ayer, hoy y siempre.|Hb 13, 8
+Acérquense a Dios y él se acercará a ustedes.|St 4, 8
+Si alguno de ustedes necesita sabiduría, que se la pida a Dios.|St 1, 5
+El amor cubre multitud de pecados.|1 P 4, 8
+Miren qué amor tan grande nos ha tenido el Padre: nos llamamos hijos de Dios, y lo somos.|1 Jn 3, 1
+En el amor no hay temor; el amor perfecto expulsa el temor.|1 Jn 4, 18
+Amemos, porque él nos amó primero.|1 Jn 4, 19`.split('\n').map(l=>{const [t,c]=l.split('|');return {t:t.trim(),c:c.trim()}});
+
+/* ---------- Liturgia del día ----------
+   Se lee de liturgia.json (mismo sitio). Si no se puede leer, se usa esta copia.
+   color: verde | morado | blanco | rojo | rosa */
+let LIT={
+"2026-10-08":{"dia":"Jueves de la XXVII semana del Tiempo Ordinario","color":"verde","texto":"Pidan y se les dará; busquen y encontrarán; llamen y se les abrirá.","cita":"Lc 11, 9"},
+"2026-10-09":{"dia":"Viernes de la XXVII semana del Tiempo Ordinario","color":"verde","texto":"Si yo expulso los demonios con el dedo de Dios, es que el Reino de Dios ha llegado a ustedes.","cita":"Lc 11, 20"},
+"2026-10-10":{"dia":"Sábado de la XXVII semana del Tiempo Ordinario","color":"verde","texto":"Dichosos más bien los que escuchan la palabra de Dios y la cumplen.","cita":"Lc 11, 28"},
+"2026-10-11":{"dia":"XXVIII Domingo del Tiempo Ordinario","color":"verde","texto":"Todo lo puedo en aquel que me fortalece.","cita":"Flp 4, 13"},
+"2026-10-12":{"dia":"Lunes de la XXVIII semana del Tiempo Ordinario","color":"verde","texto":"Para que seamos libres nos ha liberado Cristo.","cita":"Ga 5, 1"},
+"2026-10-13":{"dia":"Martes de la XXVIII semana del Tiempo Ordinario","color":"verde","texto":"Lo que vale es la fe que actúa por medio del amor.","cita":"Ga 5, 6"},
+"2026-10-14":{"dia":"Miércoles de la XXVIII semana del Tiempo Ordinario","color":"verde","texto":"El fruto del Espíritu es amor, alegría, paz, paciencia, amabilidad, bondad y fidelidad.","cita":"Ga 5, 22"}
+};
+const litReady=fetch('liturgia.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{if(j&&typeof j==='object')LIT={...LIT,...j}}).catch(()=>{});
+
+/* ---------- utilidades ---------- */
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const hex=h=>{h=h.replace('#','');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]};
+const rgba=(h,a)=>{const[r,g,b]=hex(h);return `rgba(${r},${g},${b},${a})`};
+const mix=(h1,h2,t)=>{const a=hex(h1),b=hex(h2);return '#'+a.map((v,i)=>Math.round(v+(b[i]-v)*t).toString(16).padStart(2,'0')).join('')};
+const dayOfYear=d=>Math.floor((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-Date.UTC(d.getFullYear(),0,0))/864e5);
+const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const parseYmd=s=>{const[y,m,dd]=s.split('-').map(Number);return new Date(y,m-1,dd)};
+
+/* Orden de versículos: barajado fijo por año, sin repetir hasta agotar la lista */
+function yearOrder(year){
+  const r=rng(year*7919+13), idx=VERSES.map((_,i)=>i);
+  for(let i=idx.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]]}
+  return idx;
+}
+
+/* ---------- paletas y escenas ---------- */
+const PALETTES=[
+  {base:'#17110c',mid:'#3a2a1c',light:'#ffd49a',glow:'#ffb35c'},
+  {base:'#170f13',mid:'#3d2430',light:'#ffd0b8',glow:'#ff9470'},
+  {base:'#0b1018',mid:'#1d2b40',light:'#d3e2ff',glow:'#8fb4ff'},
+  {base:'#11140d',mid:'#2c3322',light:'#f0e2a8',glow:'#d8c070'},
+  {base:'#120e1a',mid:'#2e2440',light:'#e8d8ff',glow:'#b896ff'},
+];
+/* Tonos según el color litúrgico (varias opciones por color para que no se repita) */
+const LIT_PALETTES={
+  verde:[{base:'#0f140d',mid:'#263321',light:'#eee4b0',glow:'#b9c97a'},{base:'#11140d',mid:'#2c3322',light:'#f0e2a8',glow:'#d8c070'},{base:'#0c1311',mid:'#1f3330',light:'#e6efd2',glow:'#9fc49a'}],
+  morado:[{base:'#120e1a',mid:'#2e2440',light:'#e8d8ff',glow:'#b896ff'},{base:'#140d17',mid:'#36223d',light:'#f0d6f5',glow:'#c08ad0'}],
+  blanco:[{base:'#17110c',mid:'#3a2a1c',light:'#fff1d6',glow:'#ffcf80'},{base:'#13110e',mid:'#38322a',light:'#fff8ea',glow:'#f2d59a'}],
+  rojo:[{base:'#180c0b',mid:'#41201c',light:'#ffd6c4',glow:'#e8664c'},{base:'#170f13',mid:'#3d2430',light:'#ffd0b8',glow:'#ff9470'}],
+  rosa:[{base:'#170f13',mid:'#3d2430',light:'#ffd9e2',glow:'#f0a0b8'}]
+};
+
+function sceneDoor(c,W,H,r,p){
+  const floorY=H*0.80;
+  let g=c.createLinearGradient(0,0,0,floorY);g.addColorStop(0,p.base);g.addColorStop(1,mix(p.base,p.mid,.55));
+  c.fillStyle=g;c.fillRect(0,0,W,floorY);
+  g=c.createLinearGradient(0,floorY,0,H);g.addColorStop(0,mix(p.base,p.mid,.35));g.addColorStop(1,p.base);
+  c.fillStyle=g;c.fillRect(0,floorY,W,H-floorY);
+  const ow=W*(0.30+r()*0.08), oh=Math.min(ow*2.15,floorY*0.9), ox=W/2-ow/2+(r()-.5)*W*0.12, oy=floorY-oh;
+  const f=0.25+r()*0.35, gapX=ox+ow*(1-f);
+  // resplandor detrás
+  g=c.createRadialGradient(gapX+ow*f/2,oy+oh*.5,10,gapX+ow*f/2,oy+oh*.5,ow*1.8);
+  g.addColorStop(0,rgba(p.glow,.35));g.addColorStop(1,rgba(p.glow,0));c.fillStyle=g;c.fillRect(0,0,W,H);
+  // interior iluminado
+  g=c.createLinearGradient(0,oy,0,floorY);g.addColorStop(0,p.light);g.addColorStop(1,mix(p.light,p.glow,.45));
+  c.fillStyle=g;c.fillRect(ox,oy,ow,oh);
+  // luz en el piso
+  c.save();c.globalCompositeOperation='lighter';
+  g=c.createLinearGradient(0,floorY,0,H);g.addColorStop(0,rgba(p.light,.45));g.addColorStop(1,rgba(p.light,0));
+  c.fillStyle=g;c.beginPath();c.moveTo(gapX,floorY);c.lineTo(ox+ow,floorY);c.lineTo(ox+ow+W*.28,H);c.lineTo(gapX-W*.12,H);c.closePath();c.fill();c.restore();
+  // hoja de la puerta
+  const lx=gapX, wood=mix(p.mid,'#5a3d24',.5);
+  g=c.createLinearGradient(ox,0,lx,0);g.addColorStop(0,mix(wood,p.base,.5));g.addColorStop(1,wood);
+  c.fillStyle=g;c.beginPath();c.moveTo(ox,oy);c.lineTo(lx,oy+oh*.025);c.lineTo(lx,floorY-oh*.01);c.lineTo(ox,floorY);c.closePath();c.fill();
+  c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=5;
+  const pw=(lx-ox), px=ox+pw*.16, pww=pw*.68;
+  c.strokeRect(px,oy+oh*.08,pww,oh*.36);c.strokeRect(px,oy+oh*.52,pww,oh*.38);
+  c.strokeStyle=rgba(p.light,.55);c.lineWidth=3;c.beginPath();c.moveTo(lx,oy+oh*.025);c.lineTo(lx,floorY);c.stroke();
+  // marco
+  c.strokeStyle=mix(p.base,p.mid,.4);c.lineWidth=18;c.strokeRect(ox-9,oy-9,ow+18,oh+9);
+}
+
+function sceneRays(c,W,H,r,p){
+  let g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,mix(p.base,p.mid,.6));g.addColorStop(1,p.base);
+  c.fillStyle=g;c.fillRect(0,0,W,H);
+  const sx=W*(0.2+r()*0.6), sy=-H*0.12;
+  c.save();c.globalCompositeOperation='lighter';
+  const n=7+Math.floor(r()*5), center=(r()-.5)*0.4;
+  for(let i=0;i<n;i++){
+    const a=center+(i/(n-1)-.5)*0.9+(r()-.5)*.08, w=0.02+r()*0.05;
+    const len=H*1.4;
+    const x1=sx+Math.sin(a-w)*len, x2=sx+Math.sin(a+w)*len, y=sy+Math.cos(a)*len;
+    g=c.createLinearGradient(sx,sy,sx+Math.sin(a)*len*.7,y*.7);
+    g.addColorStop(0,rgba(p.light,.22+r()*.12));g.addColorStop(1,rgba(p.light,0));
+    c.fillStyle=g;c.beginPath();c.moveTo(sx,sy);c.lineTo(x1,y);c.lineTo(x2,y);c.closePath();c.fill();
+  }
+  g=c.createRadialGradient(sx,0,0,sx,0,W*.6);g.addColorStop(0,rgba(p.light,.5));g.addColorStop(1,rgba(p.glow,0));
+  c.fillStyle=g;c.fillRect(0,0,W,H);
+  for(let i=0;i<220;i++){const x=r()*W,y=r()*H,s=r()*2.6+.4;c.fillStyle=rgba(p.light,r()*.45);c.beginPath();c.arc(x,y,s,0,7);c.fill()}
+  c.restore();
+}
+
+function bokeh(c,W,H,r,p,n,maxR,alpha){
+  c.save();c.globalCompositeOperation='lighter';
+  for(let i=0;i<n;i++){
+    const x=r()*W,y=r()*H,rad=10+r()*maxR,col=r()<.5?p.glow:p.light;
+    const g=c.createRadialGradient(x,y,rad*.55,x,y,rad);
+    g.addColorStop(0,rgba(col,alpha*(.4+r()*.6)));g.addColorStop(1,rgba(col,0));
+    c.fillStyle=g;c.beginPath();c.arc(x,y,rad,0,7);c.fill();
+  }
+  c.restore();
+}
+
+function sceneCandle(c,W,H,r,p){
+  let g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,p.base);g.addColorStop(1,mix(p.base,p.mid,.4));
+  c.fillStyle=g;c.fillRect(0,0,W,H);
+  bokeh(c,W,H*0.75,r,p,26,90,.22);
+  const cx=W*(0.5+(r()-.5)*.36), top=H*0.74, cw=W*0.12;
+  g=c.createRadialGradient(cx,top-60,0,cx,top-60,W*.75);g.addColorStop(0,rgba(p.glow,.45));g.addColorStop(1,rgba(p.glow,0));
+  c.fillStyle=g;c.fillRect(0,0,W,H);
+  g=c.createLinearGradient(cx-cw/2,0,cx+cw/2,0);
+  g.addColorStop(0,mix(p.light,p.base,.55));g.addColorStop(.45,mix(p.light,'#ffffff',.2));g.addColorStop(1,mix(p.light,p.base,.7));
+  c.fillStyle=g;c.fillRect(cx-cw/2,top,cw,H-top);
+  c.fillStyle=rgba(p.light,.9);c.beginPath();c.ellipse(cx,top,cw/2,cw*.12,0,0,7);c.fill();
+  c.strokeStyle='#2a1a10';c.lineWidth=4;c.beginPath();c.moveTo(cx,top);c.lineTo(cx,top-18);c.stroke();
+  const fh=cw*1.15, fy=top-18;
+  g=c.createRadialGradient(cx,fy-fh*.3,2,cx,fy-fh*.3,fh*.7);g.addColorStop(0,'#fffaf0');g.addColorStop(.4,p.light);g.addColorStop(1,rgba(p.glow,0));
+  c.fillStyle=g;c.beginPath();c.moveTo(cx,fy-fh);c.bezierCurveTo(cx+cw*.32,fy-fh*.45,cx+cw*.22,fy,cx,fy);c.bezierCurveTo(cx-cw*.22,fy,cx-cw*.32,fy-fh*.45,cx,fy-fh);c.fill();
+}
+
+function ridge(c,W,H,r,baseY,amp,color){
+  const k=[r()*3+1,r()*6+3,r()*13+7],ph=[r()*6,r()*6,r()*6];
+  c.fillStyle=color;c.beginPath();c.moveTo(0,H);
+  for(let x=0;x<=W;x+=8){const t=x/W;const y=baseY-amp*(Math.sin(t*k[0]+ph[0])*.6+Math.sin(t*k[1]+ph[1])*.3+Math.sin(t*k[2]+ph[2])*.1);c.lineTo(x,y)}
+  c.lineTo(W,H);c.closePath();c.fill();
+}
+
+function sceneMountains(c,W,H,r,p){
+  const hz=H*0.62;
+  let g=c.createLinearGradient(0,0,0,hz);g.addColorStop(0,p.base);g.addColorStop(.6,mix(p.mid,p.glow,.25));g.addColorStop(1,mix(p.glow,p.light,.5));
+  c.fillStyle=g;c.fillRect(0,0,W,H);
+  const sunx=W*(0.25+r()*0.5);
+  g=c.createRadialGradient(sunx,hz,0,sunx,hz,W*.7);g.addColorStop(0,rgba(p.light,.85));g.addColorStop(.15,rgba(p.glow,.4));g.addColorStop(1,rgba(p.glow,0));
+  c.fillStyle=g;c.fillRect(0,0,W,H);
+  const L=5;
+  for(let i=0;i<L;i++){
+    const t=i/(L-1);
+    ridge(c,W,H,r,hz+t*H*0.24,H*(0.07-t*0.02)+r()*H*.03,mix(mix(p.mid,p.glow,.35),p.base,.25+t*.75));
+    if(i<L-1){g=c.createLinearGradient(0,hz+t*H*.24-40,0,hz+t*H*.24+80);g.addColorStop(0,rgba(p.light,0));g.addColorStop(.5,rgba(p.light,.08));g.addColorStop(1,rgba(p.light,0));c.fillStyle=g;c.fillRect(0,0,W,H)}
+  }
+}
+
+function sceneCross(c,W,H,r,p){
+  const hz=H*0.70;
+  let g=c.createLinearGradient(0,0,0,hz);g.addColorStop(0,p.base);g.addColorStop(1,mix(p.mid,p.glow,.45));
+  c.fillStyle=g;c.fillRect(0,0,W,H);
+  const cx=W*(r()<.5?0.28+r()*.1:0.62+r()*.1);
+  g=c.createRadialGradient(cx,hz-H*.08,0,cx,hz-H*.08,W*.8);g.addColorStop(0,rgba(p.light,.75));g.addColorStop(.2,rgba(p.glow,.35));g.addColorStop(1,rgba(p.glow,0));
+  c.fillStyle=g;c.fillRect(0,0,W,H);
+  ridge(c,W,H,r,hz+H*.03,H*.03,mix(p.mid,p.base,.5));
+  // colina principal
+  const dark=mix(p.base,'#000000',.3);
+  c.fillStyle=dark;c.beginPath();c.moveTo(0,H);c.lineTo(0,hz+H*.12);
+  c.quadraticCurveTo(cx-W*.25,hz+H*.02,cx,hz);c.quadraticCurveTo(cx+W*.3,hz+H*.02,W,hz+H*.14);c.lineTo(W,H);c.closePath();c.fill();
+  const bw=W*.02, bh=H*.17, ch=W*.11;
+  c.fillRect(cx-bw/2,hz-bh+4,bw,bh);c.fillRect(cx-ch/2,hz-bh+bh*.22,ch,bw);
+}
+
+function sceneStars(c,W,H,r,p){
+  let g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,mix(p.base,'#000000',.3));g.addColorStop(.75,p.mid);g.addColorStop(1,mix(p.mid,p.glow,.5));
+  c.fillStyle=g;c.fillRect(0,0,W,H);
+  c.save();c.translate(W/2,H/2);c.rotate((r()-.5)*1.2);
+  g=c.createLinearGradient(0,-W*.2,0,W*.2);g.addColorStop(0,rgba(p.light,0));g.addColorStop(.5,rgba(p.light,.08));g.addColorStop(1,rgba(p.light,0));
+  c.fillStyle=g;c.fillRect(-H,-W*.2,H*2,W*.4);c.restore();
+  for(let i=0;i<520;i++){const x=r()*W,y=r()*H*.85,s=Math.pow(r(),3)*2.4+.3;c.fillStyle=rgba('#fffaf0',.3+r()*.6);c.beginPath();c.arc(x,y,s,0,7);c.fill()}
+  for(let i=0;i<7;i++){const x=r()*W,y=r()*H*.6;g=c.createRadialGradient(x,y,0,x,y,22);g.addColorStop(0,rgba('#ffffff',.9));g.addColorStop(1,rgba(p.light,0));c.fillStyle=g;c.fillRect(x-22,y-22,44,44)}
+  ridge(c,W,H,r,H*.88,H*.04,mix(p.base,'#000000',.35));
+}
+
+function sceneBokeh(c,W,H,r,p){
+  let g=c.createRadialGradient(W/2,H*.6,0,W/2,H*.6,H);g.addColorStop(0,p.mid);g.addColorStop(1,p.base);
+  c.fillStyle=g;c.fillRect(0,0,W,H);
+  bokeh(c,W,H,r,p,40,150,.18);bokeh(c,W,H,r,p,60,40,.3);
+}
+
+const SCENES=[sceneDoor,sceneMountains,sceneRays,sceneCross,sceneCandle,sceneStars,sceneBokeh];
+
+/* ---------- texto ---------- */
+function wrap(c,text,maxW){
+  const words=text.split(/\s+/),lines=[];let line='';
+  for(const w of words){const t=line?line+' '+w:w;if(c.measureText(t).width>maxW&&line){lines.push(line);line=w}else line=t}
+  if(line)lines.push(line);return lines;
+}
+function spaced(c,text,x,y,sp){
+  const chars=[...text];let total=chars.reduce((s,ch)=>s+c.measureText(ch).width,0)+sp*(chars.length-1);
+  let cx=x-total/2;c.textAlign='left';
+  for(const ch of chars){c.fillText(ch,cx,y);cx+=c.measureText(ch).width+sp}
+  c.textAlign='center';
+}
+
+let grainPat=null;
+function grain(c){
+  if(!grainPat){const g=document.createElement('canvas');g.width=g.height=180;const x=g.getContext('2d'),d=x.createImageData(180,180),r=rng(42);
+    for(let i=0;i<d.data.length;i+=4){const v=r()*255;d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=22}
+    x.putImageData(d,0,0);grainPat=c.createPattern(g,'repeat')}
+  return grainPat;
+}
+
+/* ---------- estado ---------- */
+const S={date:new Date(),fmt:'post',bgShift:0,verseShift:0,edits:{},photos:[],usePhotos:false,showDate:true,showLitDay:true,brand:'El Café Espiritual'};
+try{const b=localStorage.getItem('ce-brand');if(b)S.brand=b;const sd=localStorage.getItem('ce-showdate');if(sd!==null)S.showDate=sd==='1'}catch(e){}
+
+const $=id=>document.getElementById(id);
+const cv=$('cv'),ctx=cv.getContext('2d');
+const fmtDate=d=>{const s=d.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'});return s.replace(',','')};
+
+function current(){
+  const d=S.date,key=ymd(d),lit=LIT[key];
+  const e=S.edits[key]||{};
+  if(lit&&!S.verseShift) return {key,lit,t:e.t??lit.texto,c:e.c??lit.cita};
+  const order=yearOrder(d.getFullYear());
+  const v=VERSES[order[(dayOfYear(d)+S.verseShift)%order.length]];
+  return {key,lit,general:true,t:e.t??v.t,c:e.c??v.c};
+}
+
+function render(){
+  const W=1080,H=S.fmt==='post'?1350:1920;
+  cv.width=W;cv.height=H;
+  const d=S.date,doy=dayOfYear(d),seed=d.getFullYear()*1000+doy+S.bgShift*7919;
+  const r=rng(seed);
+  ctx.save();
+  if(S.usePhotos&&S.photos.length){
+    const img=S.photos[(doy+S.bgShift)%S.photos.length];
+    const s=Math.max(W/img.width,H/img.height),iw=img.width*s,ih=img.height*s;
+    ctx.drawImage(img,(W-iw)/2,(H-ih)/2,iw,ih);
+    ctx.fillStyle='rgba(15,10,6,.38)';ctx.fillRect(0,0,W,H);
+  }else{
+    const scene=SCENES[(doy+S.bgShift)%SCENES.length];
+    const lit=LIT[ymd(d)], set=lit&&LIT_PALETTES[lit.color];
+    const pal=set?set[(doy+S.bgShift)%set.length]:PALETTES[(doy*3+S.bgShift*2)%PALETTES.length];
+    scene(ctx,W,H,r,pal);
+  }
+  ctx.restore();
+
+  const story=S.fmt==='story', textCY=H*(story?0.44:0.44);
+  // sombra para lectura y viñeta
+  let g=ctx.createRadialGradient(W/2,textCY,0,W/2,textCY,W*.75);
+  g.addColorStop(0,'rgba(8,5,3,.5)');g.addColorStop(1,'rgba(8,5,3,0)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  g=ctx.createRadialGradient(W/2,H/2,W*.35,W/2,H/2,Math.max(W,H)*.75);
+  g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,.6)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.fillStyle=grain(ctx);ctx.fillRect(0,0,W,H);
+
+  const {t,c,lit,general}=current();
+  const cream='#f6ead6';
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  ctx.shadowColor='rgba(0,0,0,.65)';ctx.shadowBlur=28;
+
+  // versículo: el tamaño se ajusta al largo
+  const quote='“'+t+'”', maxW=W*0.8, maxLines=story?8:6;
+  let size=story?112:104,lines;
+  for(;size>=46;size-=2){ctx.font=`400 ${size}px "Playfair Display"`;lines=wrap(ctx,quote,maxW);if(lines.length<=maxLines)break}
+  const lh=size*1.2, blockH=lines.length*lh, citeGap=size*0.9;
+  const total=blockH+citeGap+34;
+  let y=textCY-total/2+size*0.85;
+  ctx.fillStyle=cream;
+  for(const l of lines){ctx.fillText(l,W/2,y);y+=lh}
+  ctx.font='500 34px Montserrat';ctx.fillStyle=rgba(cream,.92);
+  ctx.fillText(c,W/2,y-lh+size*0.35+citeGap);
+
+  // fecha
+  if(S.showDate){
+    ctx.font='500 27px Montserrat';ctx.fillStyle=rgba(cream,.85);
+    const dy=H*(story?0.13:0.09);
+    spaced(ctx,fmtDate(d).toUpperCase(),W/2,dy,5);
+    if(lit&&!general&&S.showLitDay){
+      ctx.font='italic 400 30px "Playfair Display"';ctx.fillStyle=rgba(cream,.75);
+      const ls=wrap(ctx,lit.dia,W*0.8);ls.forEach((l,i)=>ctx.fillText(l,W/2,dy+48+i*38));
+    }
+  }
+  // marca
+  if(S.brand.trim()){
+    const by=H*(story?0.86:0.905);
+    ctx.shadowBlur=18;ctx.strokeStyle=rgba(cream,.55);ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(W/2-30,by-58);ctx.lineTo(W/2+30,by-58);ctx.stroke();
+    ctx.font='400 34px Montserrat';ctx.fillStyle=rgba(cream,.95);ctx.fillText(S.brand.trim(),W/2,by);
+  }
+  ctx.shadowBlur=0;
+
+  // panel
+  $('litNow').textContent=lit?(lit.dia+' · '+lit.color):'';
+  $('litNote').textContent=!lit?'No hay lectura cargada para esta fecha: se usa un versículo general.':(general?'Versículo general (no es de la liturgia de hoy).':'');
+  $('litVerse').hidden=!(lit&&general);
+  $('verseNow').innerHTML='';
+  const q=document.createElement('span');q.textContent='“'+t+'”';
+  const ci=document.createElement('cite');ci.textContent=c;
+  $('verseNow').append(q,ci);
+  if(document.activeElement!==$('txt'))$('txt').value=t;
+  if(document.activeElement!==$('cite'))$('cite').value=c;
+}
+
+/* ---------- controles ---------- */
+const toast=msg=>{$('toast').textContent=msg;clearTimeout(toast.t);toast.t=setTimeout(()=>$('toast').textContent='',3500)};
+function setDate(d){S.date=d;S.bgShift=0;S.verseShift=0;$('date').value=ymd(d);render()}
+$('prev').onclick=()=>{const d=new Date(S.date);d.setDate(d.getDate()-1);setDate(d)};
+$('next').onclick=()=>{const d=new Date(S.date);d.setDate(d.getDate()+1);setDate(d)};
+$('today').onclick=()=>setDate(new Date());
+$('date').onchange=e=>{if(e.target.value)setDate(parseYmd(e.target.value))};
+function setFmt(f){S.fmt=f;$('fmtPost').setAttribute('aria-pressed',f==='post');$('fmtStory').setAttribute('aria-pressed',f==='story');render()}
+$('fmtPost').onclick=()=>setFmt('post');$('fmtStory').onclick=()=>setFmt('story');
+$('otherBg').onclick=()=>{S.bgShift++;render()};
+$('otherVerse').onclick=()=>{S.verseShift++;delete S.edits[ymd(S.date)];render()};
+$('txt').oninput=e=>{const k=ymd(S.date);S.edits[k]={...S.edits[k],t:e.target.value};render()};
+$('cite').oninput=e=>{const k=ymd(S.date);S.edits[k]={...S.edits[k],c:e.target.value};render()};
+$('brand').value=S.brand;
+$('brand').oninput=e=>{S.brand=e.target.value;try{localStorage.setItem('ce-brand',S.brand)}catch(x){}render()};
+$('showLitDay').onchange=e=>{S.showLitDay=e.target.checked;render()};
+$('litVerse').onclick=()=>{S.verseShift=0;delete S.edits[ymd(S.date)];render()};
+$('showDate').checked=S.showDate;
+$('showDate').onchange=e=>{S.showDate=e.target.checked;try{localStorage.setItem('ce-showdate',S.showDate?'1':'0')}catch(x){}render()};
+$('photos').onchange=async e=>{
+  for(const f of e.target.files){
+    const url=URL.createObjectURL(f);const img=new Image();img.src=url;
+    try{await img.decode();S.photos.push(img)}catch(x){}
+  }
+  if(S.photos.length){$('usePhotos').disabled=false;$('usePhotos').checked=true;S.usePhotos=true;toast(`${S.photos.length} foto(s) lista(s) para los fondos`);render()}
+};
+$('usePhotos').onchange=e=>{S.usePhotos=e.target.checked;render()};
+
+const fileName=()=>`cafe-espiritual-${ymd(S.date)}-${S.fmt==='post'?'publicacion':'estado'}.jpg`;
+const toBlob=()=>new Promise(res=>cv.toBlob(res,'image/jpeg',0.92));
+
+$('download').onclick=async()=>{
+  const blob=await toBlob();
+  let dl=null;
+  if(window.claude&&window.claude.use){try{dl=await window.claude.use('downloads')}catch(x){dl=null}}
+  if(dl){
+    try{await dl.save({filename:fileName(),data:blob});toast('Imagen guardada')}
+    catch(err){if(err&&err.code==='declined')toast('Descarga cancelada');else if(err&&err.code==='rate_limited')toast('Espera un momento e inténtalo de nuevo');else toast('No se pudo descargar aquí')}
+    return;
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fileName();document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('Imagen descargada');
+};
+
+// Compartir directo (funciona cuando la página está alojada en su propio sitio, p. ej. GitHub Pages)
+if(!window.claude&&navigator.canShare){
+  try{if(navigator.canShare({files:[new File([new Blob(['x'])],'x.jpg',{type:'image/jpeg'})]}))$('share').hidden=false}catch(x){}
+}
+$('share').onclick=async()=>{
+  const blob=await toBlob(),{t,c}=current();
+  try{await navigator.share({files:[new File([blob],fileName(),{type:'image/jpeg'})],text:`“${t}” (${c})`})}catch(x){}
+};
+
+$('copy').onclick=async()=>{
+  const {t,c}=current();
+  const tag=S.brand.trim()?'#'+S.brand.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]/g,''):'';
+  const txt=`“${t}” (${c})\n\n${tag} #PalabraDeDios #Fe #Esperanza`.trim();
+  try{await navigator.clipboard.writeText(txt);toast('Texto copiado')}
+  catch(x){$('txt').value=txt;$('txt').select();toast('Seleccioné el texto: cópialo con el menú')}
+};
+
+$('date').value=ymd(S.date);
+render();
+litReady.then(render);
+Promise.all([
+  document.fonts.load('400 80px "Playfair Display"'),
+  document.fonts.load('500 30px Montserrat'),
+  document.fonts.load('400 30px Montserrat')
+]).then(render,render);
+</script>
+
+</body>
+</html>
